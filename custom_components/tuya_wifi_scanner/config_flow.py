@@ -73,13 +73,29 @@ class TuyaWifiScannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             }
             return await self.async_step_device_key()
 
-        # Create a list of devices for selection
+        # Get list of already configured device IDs
+        configured_devices = {
+            entry.data.get("device_id")
+            for entry in self._async_current_entries()
+        }
+
+        # Create a list of devices for selection, filtering out already configured ones
         # deviceScan returns dict with IP as key and device info as value
         device_options = {}
         for ip, dev_info in self.devices.items():
             dev_id = dev_info.get("gwId", "Unknown ID")
+            
+            # Skip if already configured
+            if dev_id in configured_devices:
+                _LOGGER.debug(f"Skipping already configured device: {dev_id}")
+                continue
+                
             version = dev_info.get("version", "Unknown")
             device_options[ip] = f"{dev_id} ({ip}) - v{version}"
+
+        # If no new devices found, abort
+        if not device_options:
+            return self.async_abort(reason="no_new_devices")
 
         return self.async_show_form(
             step_id="select_device",
