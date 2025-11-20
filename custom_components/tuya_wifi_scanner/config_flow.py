@@ -24,7 +24,7 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_key()
 
         # Scan network
-        self.devices = await discover_tuya_devices()
+        self.devices = await discover_tuya_devices(self.hass)
 
         if not self.devices:
             return self.async_abort(reason="no_devices_found")
