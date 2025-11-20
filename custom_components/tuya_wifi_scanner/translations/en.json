@@ -1,0 +1,19 @@
+{
+  "title": "Tuya WiFi Scanner",
+  "config": {
+    "step": {
+      "user": {
+        "title": "Select Tuya Device",
+        "description": "Pick the Tuya device to configure from your Wi-Fi LAN."
+      },
+      "key": {
+        "title": "Enter Device Key",
+        "description": "Provide the device local key for secure communication."
+      }
+    },
+    "error": {
+      "invalid_key": "The provided key is invalid.",
+      "no_devices_found": "No Tuya devices found on the local network."
+    }
+  }
+}
