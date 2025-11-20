@@ -1,19 +1,29 @@
 {
-  "title": "Tuya WiFi Scanner",
   "config": {
     "step": {
       "user": {
-        "title": "Select Tuya Device",
-        "description": "Pick the Tuya device to configure from your Wi-Fi LAN."
+        "title": "Scan for Tuya WiFi Devices",
+        "description": "This will scan your local network for Tuya WiFi devices.\n\n**Note:** This scanner will find the Device ID, IP address, and protocol version. You'll still need to get the Local Key from the Tuya IoT platform to actually connect to devices.\n\nClick Submit to start scanning..."
       },
-      "key": {
-        "title": "Enter Device Key",
-        "description": "Provide the device local key for secure communication."
+      "scan": {
+        "title": "Scanning Network...",
+        "description": "Scanning for Tuya devices on your network. This may take 30-60 seconds..."
+      },
+      "select_device": {
+        "title": "Select Device",
+        "description": "Found {count} Tuya device(s). Select the device you want to add:",
+        "data": {
+          "device": "Device"
+        }
       }
     },
     "error": {
-      "invalid_key": "The provided key is invalid.",
-      "no_devices_found": "No Tuya devices found on the local network."
+      "no_devices_found": "No devices found on the network",
+      "scan_failed": "Scan failed - check logs for details"
+    },
+    "abort": {
+      "missing_library": "tinytuya library not installed",
+      "already_configured": "This device is already configured"
     }
   }
 }
