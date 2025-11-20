@@ -6,7 +6,7 @@ from homeassistant import config_entries
 from homeassistant.core import callback
 
 from .const import DOMAIN
-from .scanner import discover_tuya_devices
+from .scanner import discover_tuya_devices  # your existing scanner.py
 from .validation import validate_device_key
 
 
@@ -23,13 +23,13 @@ class TuyaWifiScannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Step 1 — scan Wi-Fi LAN for Tuya devices."""
         errors = {}
 
-        # First run: discover devices (runs in thread)
-        self.devices = await discover_tuya_devices(self.hass)
+        # Run your existing scanner.py discovery in thread
+        self.devices = await self.hass.async_add_executor_job(discover_tuya_devices)
 
         if not self.devices:
             errors["base"] = "no_devices_found"
 
-        # Format devices for dropdown
+        # Build dropdown: Name (ID) (IP), Model, Signal
         device_list = {}
         for dev_id, info in self.devices.items():
             name = info.get("name") or "Unknown Name"
@@ -78,7 +78,7 @@ class TuyaWifiScannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     description_placeholders={"device_id": self.selected_device_id}
                 )
 
-            # Key valid → create entry
+            # Key valid → create config entry
             return self.async_create_entry(
                 title=f"{self.selected_device_id}",
                 data={
