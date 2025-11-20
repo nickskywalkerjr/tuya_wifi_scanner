@@ -1,21 +1,21 @@
-"""Config flow for Tuya WiFi Local integration."""
+"""Config flow for Tuya WiFi Scanner integration."""
 from __future__ import annotations
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant, callback
+from homeassistant.core import callback
 
 from .const import DOMAIN
-from .discovery import discover_devices
+from .scanner import discover_tuya_devices
 from .validation import validate_device_key
 
 
-class TuyaLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Tuya WiFi Local."""
+class TuyaWifiScannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Tuya WiFi Scanner."""
 
     VERSION = 1
 
-    def __init__(self) -> None:
+    def __init__(self):
         self.devices = {}
         self.selected_device_id = None
 
@@ -23,20 +23,19 @@ class TuyaLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         """Step 1 — scan Wi-Fi LAN for Tuya devices."""
         errors = {}
 
-        # First run: discover devices
-        self.devices = await self.hass.async_add_executor_job(discover_devices)
+        # First run: discover devices (runs in thread)
+        self.devices = await discover_tuya_devices(self.hass)
 
         if not self.devices:
             errors["base"] = "no_devices_found"
 
-        # Format device list for dropdown
+        # Format devices for dropdown
         device_list = {}
         for dev_id, info in self.devices.items():
             name = info.get("name") or "Unknown Name"
             ip = info.get("ip") or info.get("address") or "Unknown IP"
             model = info.get("productKey") or info.get("dev_type") or "Unknown model"
             rssi = info.get("rssi")
-
             signal_text = "N/A" if rssi is None else f"{rssi} dBm"
 
             device_list[dev_id] = (
@@ -45,18 +44,14 @@ class TuyaLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 f"Signal: {signal_text}"
             )
 
-        # First selection
         if user_input is not None:
             self.selected_device_id = user_input["device"]
             return await self.async_step_key()
 
-        # Show device picker
         return self.async_show_form(
             step_id="user",
             errors=errors,
-            data_schema=vol.Schema({
-                vol.Required("device"): vol.In(device_list)
-            })
+            data_schema=vol.Schema({vol.Required("device"): vol.In(device_list)})
         )
 
     async def async_step_key(self, user_input=None):
@@ -67,7 +62,7 @@ class TuyaLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             key = user_input["key"]
 
-            # Validate key before saving
+            # Validate key in thread
             valid = await self.hass.async_add_executor_job(
                 validate_device_key,
                 self.selected_device_id,
@@ -83,7 +78,7 @@ class TuyaLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     description_placeholders={"device_id": self.selected_device_id}
                 )
 
-            # All good → create config entry
+            # Key valid → create entry
             return self.async_create_entry(
                 title=f"{self.selected_device_id}",
                 data={
@@ -93,7 +88,7 @@ class TuyaLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             )
 
-        # First time viewing the key prompt
+        # First time showing the key prompt
         return self.async_show_form(
             step_id="key",
             data_schema=vol.Schema({vol.Required("key"): str}),
@@ -103,14 +98,6 @@ class TuyaLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        return TuyaLocalOptionsFlowHandler(config_entry)
-
-
-class TuyaLocalOptionsFlowHandler(config_entries.OptionsFlow):
-    """Options flow — not used yet, but required by HA."""
-
-    def __init__(self, config_entry):
-        self.config_entry = config_entry
-
-    async def async_step_init(self, user_input=None):
-        return self.async_show_form(step_id="init")
+        """Return the options flow handler."""
+        from .options_flow import async_get_options_flow
+        return async_get_options_flow(config_entry)
