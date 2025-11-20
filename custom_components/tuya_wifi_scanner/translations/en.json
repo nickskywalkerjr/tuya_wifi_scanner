@@ -2,28 +2,43 @@
   "config": {
     "step": {
       "user": {
-        "title": "Scan for Tuya WiFi Devices",
-        "description": "This will scan your local network for Tuya WiFi devices.\n\n**Note:** This scanner will find the Device ID, IP address, and protocol version. You'll still need to get the Local Key from the Tuya IoT platform to actually connect to devices.\n\nClick Submit to start scanning..."
-      },
-      "scan": {
-        "title": "Scanning Network...",
-        "description": "Scanning for Tuya devices on your network. This may take 30-60 seconds..."
+        "title": "Scan for Tuya Devices",
+        "description": "Click Submit to scan your local network for Tuya devices.",
+        "data": {}
       },
       "select_device": {
-        "title": "Select Device",
-        "description": "Found {count} Tuya device(s). Select the device you want to add:",
+        "title": "Select Tuya Device",
+        "description": "Select the device you want to add from the list below.",
         "data": {
           "device": "Device"
+        }
+      },
+      "device_key": {
+        "title": "Enter Device Key",
+        "description": "Enter the local key for device {device_id} at {ip}. You can get this from the Tuya IoT Platform.",
+        "data": {
+          "local_key": "Local Key"
         }
       }
     },
     "error": {
-      "no_devices_found": "No devices found on the network",
-      "scan_failed": "Scan failed - check logs for details"
+      "no_devices_found": "No Tuya devices found on your network. Make sure your devices are powered on and connected to the same network.",
+      "scan_failed": "Failed to scan for devices. Check your network configuration.",
+      "invalid_key": "Invalid local key. The device rejected the connection. Please verify the key from Tuya IoT Platform.",
+      "cannot_connect": "Cannot connect to device. Check if the device is online and the key is correct."
     },
     "abort": {
-      "missing_library": "tinytuya library not installed",
-      "already_configured": "This device is already configured"
+      "already_configured": "This device is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Tuya WiFi Scanner Options",
+        "data": {
+          "scan_interval": "Scan interval (seconds)"
+        }
+      }
     }
   }
 }
