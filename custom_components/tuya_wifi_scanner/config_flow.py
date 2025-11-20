@@ -30,14 +30,34 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="no_devices_found")
 
         # Prepare dropdown list
-        device_names = {
-            dev_id: f"{dev_id} ({info.get('ip')})"
-            for dev_id, info in self.devices.items()
-        }
+        device_list = {}
 
-        data_schema = vol.Schema({
-            vol.Required("device"): vol.In(device_names)
-        })
+        for dev_id, info in self.devices.items():
+        
+            # Extract fields safely
+            name = info.get("name") or "Unknown Name"
+            ip = info.get("ip") or info.get("address") or "Unknown IP"
+            model = info.get("productKey") or info.get("dev_type") or "Unknown model"
+            rssi = info.get("rssi")
+        
+            # Format signal strength
+            if rssi is None:
+                signal_text = "N/A"
+            else:
+                signal_text = f"{rssi} dBm"
+        
+            # Display string
+            display_text = (
+                f"{name} ({dev_id}) ({ip})\n"
+                f"Model: {model}\n"
+                f"Signal: {signal_text}"
+            )
+
+            device_list[dev_id] = display_text
+
+
+        data_schema = vol.Schema({vol.Required("device"): vol.In(device_list)})
+
 
         return self.async_show_form(
             step_id="user",
