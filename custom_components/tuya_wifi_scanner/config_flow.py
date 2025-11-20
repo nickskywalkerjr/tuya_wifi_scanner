@@ -1,149 +1,149 @@
-"""Config flow for Tuya WiFi Scanner."""
+"""Config flow for Tuya WiFi Scanner integration."""
 import logging
-from typing import Any
-
 import voluptuous as vol
+
 from homeassistant import config_entries
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.data_entry_flow import FlowResult
-import homeassistant.helpers.config_validation as cv
+from homeassistant.core import callback
+import tinytuya
 
-try:
-    import tinytuya
-except ImportError:
-    tinytuya = None
-
-DOMAIN = "tuya_wifi_scanner"
+from .const import DOMAIN
 
 _LOGGER = logging.getLogger(__name__)
 
 
-class TuyaScannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class TuyaWifiScannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Tuya WiFi Scanner."""
 
     VERSION = 1
 
     def __init__(self):
         """Initialize the config flow."""
-        self.discovered_devices = []
+        self.devices = []
+        self.selected_device = None
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Handle the initial step - start scanning."""
-        if user_input is not None:
-            # User clicked to start scan
-            return await self.async_step_scan()
+    async def async_step_user(self, user_input=None):
+        """Handle the initial step - scan for devices."""
+        errors = {}
+
+        if user_input is None:
+            # Show the scan button
+            return self.async_show_form(
+                step_id="user",
+                data_schema=vol.Schema({}),
+                description_placeholders={
+                    "info": "Click Submit to scan for Tuya devices on your network."
+                },
+            )
+
+        # Perform the scan
+        try:
+            _LOGGER.info("Starting Tuya device scan...")
+            
+            # Use deviceScan() instead of tinytuya.scanner.scan()
+            # deviceScan() returns a dictionary of discovered devices
+            devices = await self.hass.async_add_executor_job(
+                lambda: tinytuya.deviceScan(verbose=False, maxretries=10)
+            )
+            
+            if not devices:
+                errors["base"] = "no_devices_found"
+            else:
+                self.devices = devices
+                _LOGGER.info(f"Found {len(devices)} Tuya device(s)")
+                return await self.async_step_select_device()
+
+        except Exception as e:
+            _LOGGER.error(f"Scan failed: {e}", exc_info=True)
+            errors["base"] = "scan_failed"
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema({}),
-            description_placeholders={
-                "info": "This will scan your local network for Tuya WiFi devices. Click Submit to start scanning."
-            },
-        )
-
-    async def async_step_scan(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Scan for devices."""
-        if tinytuya is None:
-            return self.async_abort(reason="missing_library")
-
-        errors = {}
-
-        # Perform the scan
-        try:
-            devices = await self.hass.async_add_executor_job(self._scan_network)
-            
-            if not devices:
-                return self.async_show_form(
-                    step_id="scan",
-                    errors={"base": "no_devices_found"},
-                    description_placeholders={
-                        "result": "No Tuya devices found on your network. Make sure devices are powered on and connected to WiFi."
-                    },
-                )
-
-            self.discovered_devices = devices
-            return await self.async_step_select_device()
-
-        except Exception as err:
-            _LOGGER.error(f"Scan failed: {err}")
-            errors["base"] = "scan_failed"
-
-        return self.async_show_form(
-            step_id="scan",
             errors=errors,
-            description_placeholders={"result": "Scanning failed. Check logs for details."},
         )
 
-    async def async_step_select_device(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
-        """Let user select discovered device."""
+    async def async_step_select_device(self, user_input=None):
+        """Let the user select a discovered device."""
         if user_input is not None:
-            selected_ip = user_input["device"]
-            
-            # Find the selected device
-            selected_device = None
-            for device in self.discovered_devices:
-                if device["ip"] == selected_ip:
-                    selected_device = device
-                    break
+            device_id = user_input["device"]
+            self.selected_device = self.devices[device_id]
+            return await self.async_step_device_key()
 
-            if selected_device:
-                # Create the config entry
-                return self.async_create_entry(
-                    title=f"Tuya Device ({selected_device['ip']})",
-                    data={
-                        "ip": selected_device["ip"],
-                        "device_id": selected_device["device_id"],
-                        "version": selected_device["version"],
-                        "product_id": selected_device.get("product_id", ""),
-                    },
-                )
-
-        # Build device selection options
+        # Create a list of devices for selection
         device_options = {}
-        for device in self.discovered_devices:
-            label = f"{device['ip']} - ID: {device['device_id'][:8]}... (v{device['version']})"
-            if device.get("product_id"):
-                label += f" [{device['product_id']}]"
-            device_options[device["ip"]] = label
+        for dev_id, dev_info in self.devices.items():
+            ip = dev_info.get("ip", "Unknown IP")
+            version = dev_info.get("version", "Unknown")
+            device_options[dev_id] = f"{dev_id} ({ip}) - v{version}"
 
         return self.async_show_form(
             step_id="select_device",
-            data_schema=vol.Schema({
-                vol.Required("device"): vol.In(device_options),
-            }),
+            data_schema=vol.Schema(
+                {
+                    vol.Required("device"): vol.In(device_options),
+                }
+            ),
+        )
+
+    async def async_step_device_key(self, user_input=None):
+        """Ask the user for the device key."""
+        errors = {}
+
+        if user_input is not None:
+            # Store the configuration
+            device_id = self.selected_device.get("gwId") or self.selected_device.get("id")
+            
+            return self.async_create_entry(
+                title=f"Tuya Device {device_id[:8]}...",
+                data={
+                    "device_id": device_id,
+                    "ip": self.selected_device.get("ip"),
+                    "local_key": user_input["local_key"],
+                    "version": self.selected_device.get("version", "3.3"),
+                },
+            )
+
+        return self.async_show_form(
+            step_id="device_key",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("local_key"): str,
+                }
+            ),
+            errors=errors,
             description_placeholders={
-                "count": str(len(self.discovered_devices))
+                "device_id": self.selected_device.get("gwId") or self.selected_device.get("id"),
+                "ip": self.selected_device.get("ip"),
             },
         )
 
-    def _scan_network(self) -> list[dict]:
-        """Scan the network for Tuya devices."""
-        _LOGGER.info("Starting Tuya device scan...")
-        
-        devices = []
-        
-        # Use tinytuya's built-in scanner
-        scanner = tinytuya.scanner.TuyaScan()
-        found = scanner.scan(maxretry=15)
-        
-        for device_id, device_info in found.items():
-            device_data = {
-                "device_id": device_id,
-                "ip": device_info.get("ip", ""),
-                "version": device_info.get("version", "3.3"),
-                "product_id": device_info.get("product_id", ""),
-            }
-            
-            # Only add devices with valid IP
-            if device_data["ip"]:
-                devices.append(device_data)
-                _LOGGER.info(f"Found device: {device_data}")
-        
-        _LOGGER.info(f"Scan complete. Found {len(devices)} devices.")
-        return devices
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry):
+        """Get the options flow for this handler."""
+        return TuyaOptionsFlowHandler(config_entry)
+
+
+class TuyaOptionsFlowHandler(config_entries.OptionsFlow):
+    """Handle options flow for Tuya WiFi Scanner."""
+
+    def __init__(self, config_entry):
+        """Initialize options flow."""
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        """Manage the options."""
+        if user_input is not None:
+            return self.async_create_entry(title="", data=user_input)
+
+        return self.async_show_form(
+            step_id="init",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        "scan_interval",
+                        default=self.config_entry.options.get("scan_interval", 30),
+                    ): int,
+                }
+            ),
+        )
