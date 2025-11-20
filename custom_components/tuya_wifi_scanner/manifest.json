@@ -1,0 +1,10 @@
+{
+  "domain": "tuya_wifi_scanner",
+  "name": "Tuya WiFi Scanner",
+  "version": "0.0.1",
+  "documentation": "https://github.com/nickskywalkerjr/tuya_wifi_scanner",
+  "requirements": ["tinytuya==1.13.0"],
+  "codeowners": ["@nickskywalkerjr"],
+  "config_flow": true,
+  "iot_class": "local_polling"
+}
