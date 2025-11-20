@@ -30,12 +30,9 @@ class TuyaWifiScannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         device_list = {}
         for dev_id, info in self.devices.items():
-            name = info.get("name") or "Unknown Name"
-            ip = info.get("ip") or info.get("address") or "Unknown IP"
-            model = info.get("productKey") or info.get("dev_type") or "Unknown model"
-            rssi = info.get("rssi")
-            signal = "N/A" if rssi is None else f"{rssi} dBm"
-            device_list[dev_id] = f"{name} ({dev_id}) ({ip})\nModel: {model}\nSignal: {signal}"
+            name = info.get("product_name")
+            ip = info.get("ip") or "Unknown IP"
+            device_list[dev_id] = f"{name} ({dev_id}) ({ip})"
 
         if user_input is not None:
             self.selected_device_id = user_input["device"]
