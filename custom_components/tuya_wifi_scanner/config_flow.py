@@ -66,32 +66,52 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_key(self, user_input=None):
-        """Second step: ask user for device local key."""
+    """Second step: ask user for device local key."""
 
-        # Final submission → create entry
+        # If user submitted a key, validate it
         if user_input is not None:
             dev_info = self.devices.get(self.selected_device_id, {})
-
+            ip = dev_info.get("ip")
+    
+            # Validate the provided key
+            valid = await self.hass.async_add_executor_job(
+                validate_device_key,
+                self.selected_device_id,
+                ip,
+                user_input["key"]
+            )
+    
+            if not valid:
+                # Key invalid → show form again with error
+                return self.async_show_form(
+                    step_id="key",
+                    data_schema=vol.Schema({vol.Required("key"): str}),
+                    errors={"key": "invalid_key"},
+                    description_placeholders={
+                        "device_id": self.selected_device_id
+                    }
+                )
+    
+            # Key is valid → create entry
             return self.async_create_entry(
-                title=f"Tuya {self.selected_device_id}",
+                title=f"{self.selected_device_id}",
                 data={
                     "device_id": self.selected_device_id,
-                    "device_ip": dev_info.get("ip"),
+                    "device_ip": ip,
                     "device_key": user_input["key"]
                 }
             )
-
-        data_schema = vol.Schema({
-            vol.Required("key"): str
-        })
-
+    
+        # First time opening the step → show form
         return self.async_show_form(
             step_id="key",
-            data_schema=data_schema,
+            data_schema=vol.Schema({vol.Required("key"): str}),
             description_placeholders={
                 "device_id": self.selected_device_id
             }
         )
+
+
 
     @staticmethod
     @callback
