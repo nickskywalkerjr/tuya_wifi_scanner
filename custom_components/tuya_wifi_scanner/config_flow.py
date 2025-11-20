@@ -96,5 +96,5 @@ class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        """No options flow."""
-        return None
+        from .options_flow import async_get_options_flow
+        return async_get_options_flow(config_entry)
