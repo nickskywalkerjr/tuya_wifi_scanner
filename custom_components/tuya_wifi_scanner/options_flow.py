@@ -1,8 +1,7 @@
 from homeassistant import config_entries
 from homeassistant.core import callback
-
-from .const import DOMAIN
 import voluptuous as vol
+from .const import DOMAIN
 
 class TuyaWifiScannerOptionsFlowHandler(config_entries.OptionsFlow):
     """Handle options for existing config entry."""
@@ -12,7 +11,6 @@ class TuyaWifiScannerOptionsFlowHandler(config_entries.OptionsFlow):
 
     async def async_step_init(self, user_input=None):
         """Initial options step."""
-
         if user_input is not None:
             return self.async_create_entry(title="", data=user_input)
 
@@ -24,7 +22,6 @@ class TuyaWifiScannerOptionsFlowHandler(config_entries.OptionsFlow):
             step_id="init",
             data_schema=schema
         )
-
 
 @callback
 def async_get_options_flow(config_entry):
