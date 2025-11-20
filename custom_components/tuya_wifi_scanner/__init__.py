@@ -1,31 +1,25 @@
-from .const import DOMAIN
-import tinytuya
+"""Tuya WiFi Scanner integration."""
+import logging
 
-async def async_setup_entry(hass, entry):
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+
+_LOGGER = logging.getLogger(__name__)
+
+DOMAIN = "tuya_wifi_scanner"
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Tuya WiFi Scanner from a config entry."""
     hass.data.setdefault(DOMAIN, {})
+    
+    # Store the scan results
+    hass.data[DOMAIN][entry.entry_id] = entry.data.get("devices", [])
+    
+    return True
 
-    device_id = entry.data.get("device_id")
-    device_ip = entry.data.get("device_ip")
-    local_key = entry.data.get("device_key")
-    product_name = entry.data.get("product_name", "Unknown")
 
-    device = tinytuya.Device(device_id, device_ip, local_key)
-    device.set_version(3.3)
-
-    try:
-        status = await hass.async_add_executor_job(device.status)
-        if not status or "dps" not in status:
-            raise Exception("Device did not respond correctly")
-    except Exception as err:
-        raise RuntimeError(f"Failed to connect to device {device_id}: {err}")
-
-    hass.data[DOMAIN][entry.entry_id] = {
-        "device": device,
-        "id": device_id,
-        "ip": device_ip,
-        "product_name": product_name,
-        "local_key": local_key,
-    }
-
+async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Unload a config entry."""
+    hass.data[DOMAIN].pop(entry.entry_id)
     return True
