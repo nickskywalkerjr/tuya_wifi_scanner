@@ -1,10 +1,13 @@
 {
   "domain": "tuya_wifi_scanner",
   "name": "Tuya WiFi Scanner",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "documentation": "https://github.com/nickskywalkerjr/tuya_wifi_scanner",
-  "requirements": ["tinytuya==1.13.0"],
+  "requirements": ["tinytuya==1.6.5"],
+  "dependencies": [],
   "codeowners": ["@nickskywalkerjr"],
   "config_flow": true,
-  "iot_class": "local_polling"
+  "iot_class": "local_polling",
+  "homeassistant": "2023.12.0",
+  "loggers": ["tinytuya"]
 }
