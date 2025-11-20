@@ -16,14 +16,14 @@ class TuyaWifiScannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     VERSION = 1
 
     def __init__(self):
-        self.devices = {}
-        self.selected_device_id = None
+        self.devices: dict = {}
+        self.selected_device_id: str | None = None
 
     async def async_step_user(self, user_input=None):
         """Step 1 — scan Wi-Fi LAN for Tuya devices."""
         errors = {}
 
-        # Run your existing scanner.py discovery in thread
+        # Discover devices in background thread
         self.devices = await self.hass.async_add_executor_job(discover_tuya_devices)
 
         if not self.devices:
@@ -62,7 +62,7 @@ class TuyaWifiScannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             key = user_input["key"]
 
-            # Validate key in thread
+            # Validate key in background thread
             valid = await self.hass.async_add_executor_job(
                 validate_device_key,
                 self.selected_device_id,
@@ -78,7 +78,7 @@ class TuyaWifiScannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     description_placeholders={"device_id": self.selected_device_id}
                 )
 
-            # Key valid → create config entry
+            # Key is valid → create config entry
             return self.async_create_entry(
                 title=f"{self.selected_device_id}",
                 data={
@@ -88,7 +88,7 @@ class TuyaWifiScannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 }
             )
 
-        # First time showing the key prompt
+        # First time showing key prompt
         return self.async_show_form(
             step_id="key",
             data_schema=vol.Schema({vol.Required("key"): str}),
