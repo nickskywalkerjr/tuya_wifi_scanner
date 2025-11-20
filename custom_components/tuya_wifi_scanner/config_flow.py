@@ -1,120 +1,116 @@
+"""Config flow for Tuya WiFi Local integration."""
+from __future__ import annotations
+
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.core import callback
+from homeassistant.core import HomeAssistant, callback
 
 from .const import DOMAIN
-from .scanner import discover_tuya_devices
+from .discovery import discover_devices
+from .validation import validate_device_key
 
 
-class ConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
-    """Handle a config flow for Tuya WiFi Scanner."""
+class TuyaLocalConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+    """Handle a config flow for Tuya WiFi Local."""
 
     VERSION = 1
 
-    def __init__(self):
+    def __init__(self) -> None:
         self.devices = {}
         self.selected_device_id = None
 
     async def async_step_user(self, user_input=None):
-        """First step: discover devices + let user pick one."""
+        """Step 1 — scan Wi-Fi LAN for Tuya devices."""
+        errors = {}
 
-        # Submit selected device → go to key step
-        if user_input is not None:
-            self.selected_device_id = user_input["device"]
-            return await self.async_step_key()
-
-        # Scan network
-        self.devices = await discover_tuya_devices(self.hass)
+        # First run: discover devices
+        self.devices = await self.hass.async_add_executor_job(discover_devices)
 
         if not self.devices:
-            return self.async_abort(reason="no_devices_found")
+            errors["base"] = "no_devices_found"
 
-        # Prepare dropdown list
+        # Format device list for dropdown
         device_list = {}
-
         for dev_id, info in self.devices.items():
-        
-            # Extract fields safely
             name = info.get("name") or "Unknown Name"
             ip = info.get("ip") or info.get("address") or "Unknown IP"
             model = info.get("productKey") or info.get("dev_type") or "Unknown model"
             rssi = info.get("rssi")
-        
-            # Format signal strength
-            if rssi is None:
-                signal_text = "N/A"
-            else:
-                signal_text = f"{rssi} dBm"
-        
-            # Display string
-            display_text = (
+
+            signal_text = "N/A" if rssi is None else f"{rssi} dBm"
+
+            device_list[dev_id] = (
                 f"{name} ({dev_id}) ({ip})\n"
                 f"Model: {model}\n"
                 f"Signal: {signal_text}"
             )
 
-            device_list[dev_id] = display_text
+        # First selection
+        if user_input is not None:
+            self.selected_device_id = user_input["device"]
+            return await self.async_step_key()
 
-
-        data_schema = vol.Schema({vol.Required("device"): vol.In(device_list)})
-
-
+        # Show device picker
         return self.async_show_form(
             step_id="user",
-            data_schema=data_schema,
-            description_placeholders={}
+            errors=errors,
+            data_schema=vol.Schema({
+                vol.Required("device"): vol.In(device_list)
+            })
         )
 
     async def async_step_key(self, user_input=None):
-    """Second step: ask user for device local key."""
+        """Step 2 — ask user for local key."""
+        dev_info = self.devices.get(self.selected_device_id, {})
+        ip = dev_info.get("ip")
 
-        # If user submitted a key, validate it
         if user_input is not None:
-            dev_info = self.devices.get(self.selected_device_id, {})
-            ip = dev_info.get("ip")
-    
-            # Validate the provided key
+            key = user_input["key"]
+
+            # Validate key before saving
             valid = await self.hass.async_add_executor_job(
                 validate_device_key,
                 self.selected_device_id,
                 ip,
-                user_input["key"]
+                key
             )
-    
+
             if not valid:
-                # Key invalid → show form again with error
                 return self.async_show_form(
                     step_id="key",
-                    data_schema=vol.Schema({vol.Required("key"): str}),
                     errors={"key": "invalid_key"},
-                    description_placeholders={
-                        "device_id": self.selected_device_id
-                    }
+                    data_schema=vol.Schema({vol.Required("key"): str}),
+                    description_placeholders={"device_id": self.selected_device_id}
                 )
-    
-            # Key is valid → create entry
+
+            # All good → create config entry
             return self.async_create_entry(
                 title=f"{self.selected_device_id}",
                 data={
                     "device_id": self.selected_device_id,
                     "device_ip": ip,
-                    "device_key": user_input["key"]
+                    "device_key": key
                 }
             )
-    
-        # First time opening the step → show form
+
+        # First time viewing the key prompt
         return self.async_show_form(
             step_id="key",
             data_schema=vol.Schema({vol.Required("key"): str}),
-            description_placeholders={
-                "device_id": self.selected_device_id
-            }
+            description_placeholders={"device_id": self.selected_device_id}
         )
-
-
 
     @staticmethod
     @callback
     def async_get_options_flow(config_entry):
-        from .options_flow import async_get_options_flow
-        return async_get_options_flow(config_entry)
+        return TuyaLocalOptionsFlowHandler(config_entry)
+
+
+class TuyaLocalOptionsFlowHandler(config_entries.OptionsFlow):
+    """Options flow — not used yet, but required by HA."""
+
+    def __init__(self, config_entry):
+        self.config_entry = config_entry
+
+    async def async_step_init(self, user_input=None):
+        return self.async_show_form(step_id="init")
