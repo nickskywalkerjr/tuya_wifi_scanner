@@ -42,7 +42,7 @@ class TuyaWifiScannerConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
             # Use deviceScan() instead of tinytuya.scanner.scan()
             # deviceScan() returns a dictionary of discovered devices
             devices = await self.hass.async_add_executor_job(
-                lambda: tinytuya.deviceScan(verbose=False, maxretries=10)
+                lambda: tinytuya.deviceScan(verbose=False, maxretry=10)
             )
             
             if not devices:
